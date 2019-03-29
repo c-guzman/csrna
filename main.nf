@@ -284,7 +284,7 @@ process bt2_mapping {
     file bt2_index from bt2_index.collect()
 
     output:
-    file '*.sorted.bam' into bt2_bams_bc
+    file '*.sorted.bam' into bt2_bams_bc, bt2_bams_tags
     file '*.sorted.bam.bai' into bt2_indexes_bc
     file '*.bt2.log' into mapping_results
 
@@ -337,6 +337,25 @@ process bamcoverage {
 }
 
 /*
+ * STEP 5 - makeTagDirectories
+ */
+process tag_directories {
+    tag "${bam.baseName - '.sorted.bam'}"
+    publishDir "${params.outdir}/", mode: 'copy'
+
+    input:
+    file bam from bt2_bams_tags
+
+    output:
+    file "tag_dirs/${bam.baseName}/*" into tags
+
+    script:
+    """
+    makeTagDirectory tag_dirs/${bam.baseName}/ $bam
+    """
+}
+
+/*
  * STEP - MultiQC
  */
 process multiqc {
@@ -370,7 +389,7 @@ process multiqc {
  * STEP - Output Description HTML
  */
 process output_documentation {
-    publishDir "${params.outdir}/documentation", mode: 'copy'
+    publishDir "${params.outdir}/Documentation", mode: 'copy'
 
     input:
     file output_docs from ch_output_docs
