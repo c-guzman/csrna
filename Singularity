@@ -3,7 +3,7 @@ Bootstrap:docker
 
 %labels
     MAINTAINER Carlos Guzman
-    DESCRIPTION Singularity image containing all reqs for the c-guzman/csrna heinzlab pipeline.
+    DESCRIPTION Singularity image containing all reqs for the c-guzman/csrna heinzlab pipeline
     VERSION 1.0dev
 
 %environment
