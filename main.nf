@@ -268,6 +268,9 @@ process trim_galore {
     }
 }
 
+/*
+ * STEP 3 - Mapping
+ */
 process bt2_mapping {
     tag "$prefix"
     publishDir "${params.outdir}/bt2_mapping", mode: 'copy',
@@ -281,8 +284,8 @@ process bt2_mapping {
     file bt2_index from bt2_index.collect()
 
     output:
-    file '*.sorted.dedup.bam' into bt2_bams_bc
-    file '*.sorted.dedup.bam.bai' into bt2_indexes_bc
+    file '*.sorted.bam' into bt2_bams_bc
+    file '*.sorted.bam.bai' into bt2_indexes_bc
     file '*.bt2.log' into mapping_results
 
     script:
@@ -290,31 +293,27 @@ process bt2_mapping {
     if (params.singleEnd) {
         """
         bowtie2 -q --very-sensitive -N 1 -p ${task.cpus} \\
-        -x ${bt2_index}/genome $reads 2> ${prefix}.bt2.log | samtools sort -n -O bam \\
-        -T ${prefix} -@ ${task.cpus} - | samtools fixmate -m - - | \\
-        samtools sort -@ ${task.cpus} - | samtools markdup \\
-        - ${prefix}.sorted.dedup.bam
+        -x ${bt2_index}/genome $reads 2> ${prefix}.bt2.log | samtools sort -O bam \\
+        -T ${prefix} -@ ${task.cpus} -o ${prefix}.sorted.bam -
 
-        samtools index ${prefix}.sorted.dedup.bam
+        samtools index ${prefix}.sorted.bam
         """
     } else {
         """
         bowtie2 -q --very-sensitive -N 1 -p ${task.cpus} \\
         -x ${bt2_index}/genome -1 ${reads[0]} -2 ${reads[1]} 2> ${prefix}.bt2.log | samtools \\
-        sort -n -O bam -T ${prefix} -@ ${task.cpus} - | samtools fixmate \\
-        -m - - | samtools sort -@ ${task.cpus} - | samtools markdup \\
-        - ${prefix}.sorted.dedup.bam
+        sort -O bam -T ${prefix} -@ ${task.cpus} -o ${prefix}.sorted.bam -
 
-        samtools index ${prefix}.sorted.dedup.bam
+        samtools index ${prefix}.sorted.bam
         """
     }
 }
 
 /*
- * STEP - bamCoverage
+ * STEP 4 - bamCoverage
  */
 process bamcoverage {
-    tag "${bt2_bams_bc.baseName - '.sorted.dedup.bam'}"
+    tag "${bam.baseName - '.sorted.bam'}"
     publishDir "${params.outdir}/bigwigs", mode: 'copy',
         saveAs: {filename ->
             if (filename.indexOf(".bc.log") > 0) "logs/$filename"
@@ -327,20 +326,21 @@ process bamcoverage {
     
     output:
     file '*.RPKMnorm.FWD.bw' into bigwigs_forward
-    file '*.RPKMnorm.REW.bw' into bigwigs_reverse
+    file '*.RPKMnorm.REV.bw' into bigwigs_reverse
     file '*.bc.log' into bigwig_results
 
     script:
     """
-    bamCoverage -b $bam -o ${bam.baseName}.RPKMnorm.FWD.bw -bs 1 -p ${task.cpus} --normalizeUsing RPKM --filterRNAstrand forward
-    bamCoverage -b $bam -o ${bam.baseName}.RPKMnorm.REV.bw -bs 1 -p ${task.cpus} --normalizeUsing RPKM --filterRNAstrand reverse
+    bamCoverage -b $bam -o ${bam.baseName}.RPKMnorm.FWD.bw -bs 50 -p ${task.cpus} --normalizeUsing RPKM --filterRNAstrand forward 2> ${bam.baseName}.bc.log
+    bamCoverage -b $bam -o ${bam.baseName}.RPKMnorm.REV.bw -bs 50 -p ${task.cpus} --normalizeUsing RPKM --filterRNAstrand reverse 2>> ${bam.baseName}.bc.log
     """
+}
 
 /*
  * STEP - MultiQC
  */
 process multiqc {
-    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+    publishDir "${params.outdir}/multiqc", mode: 'copy'
 
     input:
     file multiqc_config from ch_multiqc_config
@@ -370,7 +370,7 @@ process multiqc {
  * STEP - Output Description HTML
  */
 process output_documentation {
-    publishDir "${params.outdir}/Documentation", mode: 'copy'
+    publishDir "${params.outdir}/documentation", mode: 'copy'
 
     input:
     file output_docs from ch_output_docs
@@ -392,9 +392,9 @@ process output_documentation {
 workflow.onComplete {
 
     // Set up the e-mail variables
-    def subject = "[nf-core/chip] Successful: $workflow.runName"
+    def subject = "[c-guzman/csrna] Successful: $workflow.runName"
     if(!workflow.success){
-      subject = "[nf-core/chip] FAILED: $workflow.runName"
+      subject = "[c-guzman/csrna] FAILED: $workflow.runName"
     }
     def email_fields = [:]
     email_fields['version'] = workflow.manifest.version
