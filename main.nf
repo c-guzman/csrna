@@ -27,29 +27,30 @@ def helpMessage() {
 
     The typical command for running the pipeline is as follows:
 
-    nextflow run c-guzman/csrna --reads '*_R{1,2}.fastq.gz' -profile singularity
+    nextflow run c-guzman/csrna --reads '*_R{1,2}.fastq.gz' -profile singularity <options>
 
     Mandatory arguments:
-      --reads                       Path to input data (must be surrounded with quotes)
-      --genome                      Name of iGenomes reference
-      -profile                      Configuration profile to use. Can use multiple (comma separated)
-                                    Available: marvin, conda, docker, singularity, awsbatch, test and more.
+      --reads                       Path to input data (must be surrounded with quotes).
+      --genome                      Name of iGenomes reference.
+      -profile                      Configuration profile to use. Can use multiple (comma separated).
+                                    Available: marvin, conda, docker, singularity, awsbatch, test.
 
     Options:
-      --singleEnd                   Specifies that the input is single end reads
+      --singleEnd                   Specifies that the input is single end reads.
+      --max_cpus                    Specify the max number of cores/cpus to use.
 
-    References                      If not specified in the configuration file or you wish to overwrite any of the references.
-      --fasta                       Path to Fasta reference
-      --bt2_index                   Path to Bowtie2 index directory
+    References:                     If not specified in the configuration file or you wish to overwrite any of the references.
+      --fasta                       Path to Fasta reference.
+      --bt2_index                   Path to Bowtie2 index directory.
 
     Other options:
-      --outdir                      The output directory where the results will be saved
-      --email                       Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits
+      --outdir                      The output directory name where the results will be saved.
+      --email                       Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits.
       -name                         Name for the pipeline run. If not specified, Nextflow will automatically generate a random mnemonic.
 
     AWSBatch options:
-      --awsqueue                    The AWSBatch JobQueue that needs to be set when running on AWSBatch
-      --awsregion                   The AWS Region for your AWS Batch job to run on
+      --awsqueue                    The AWSBatch JobQueue that needs to be set when running on AWSBatch.
+      --awsregion                   The AWS Region for your AWS Batch job to run on.
     """.stripIndent()
 }
 
@@ -139,7 +140,7 @@ log.info """=======================================================
     | \\| |       \\__, \\__/ |  \\ |___     \\`-._,-`-,
                                           `._,._,\'
 
-nf-core/csrna v${workflow.manifest.version}"
+c-guzman/csrna v${workflow.manifest.version}"
 ======================================================="""
 def summary = [:]
 summary['Pipeline Name']  = 'c-guzman/csrna'
@@ -210,6 +211,7 @@ process get_software_versions {
     trim_galore --version > v_trim_galore.txt
     bowtie2 --version > v_bowtie2.txt
     samtools --version > v_samtools.txt
+    bamCoverage --version > v_bamcoverage.txt
     scrape_software_versions.py > software_versions_mqc.yaml
     """
 }
@@ -313,7 +315,7 @@ process bt2_mapping {
  * STEP 4 - bamCoverage
  */
 process bamcoverage {
-    tag "${bam.baseName - '.sorted.bam'}"
+    tag "${bam.baseName - '.sorted'}"
     publishDir "${params.outdir}/bigwigs", mode: 'copy',
         saveAs: {filename ->
             if (filename.indexOf(".bc.log") > 0) "logs/$filename"
@@ -340,7 +342,7 @@ process bamcoverage {
  * STEP 5 - makeTagDirectories
  */
 process tag_directories {
-    tag "${bam.baseName - '.sorted.bam'}"
+    tag "${bam.baseName - '.sorted'}"
     publishDir "${params.outdir}/", mode: 'copy'
 
     input:
